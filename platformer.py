@@ -25,32 +25,39 @@ MOVEMENT_SPEED = 5
 JUMP_SPEED = 14
 GRAVITY = 0.5
 
+TAN_FACTOR = 60
+
 # Player configurations
 PLAYERS = {
     "isaac": {
         "s": 5, # SPEED
         "a": 0.1, # APPEARING CHANCE
-        "c": 0.8 # CURSE CHANCE
+        "c": 0.8, # CURSE CHANCE
+        "t": TAN_FACTOR * 0.3 # TEACHER CHANCE
     },
     "rachel": {
         "s": 4,
         "a": 0.2,
-        "c": 0.5
+        "c": 0.5,
+        "t": TAN_FACTOR * 0.3
     },
     "sudharshan": {
         "s": 5,
         "a": 0.2,
-        "c": 0.25
+        "c": 0.25,
+        "t": TAN_FACTOR * 0.2
     },
     "ambrose": {
         "s": 7,
         "a": 0.15,
-        "c": 0.5
+        "c": 0.5,
+        "t": TAN_FACTOR * 0.1
     },
     "yihe": {
         "s": 5,
-        "a": 0.17,
-        "c": 1.5
+        "a": 0.2,
+        "c": 1.5,
+        "t": TAN_FACTOR * 0.4
     }
 }
 
@@ -109,6 +116,16 @@ class MyGame(arcade.Window):
         self.first_update = True
 
         self.meep_pop = 0
+        self.meep_x = -10000
+        self.meep_speed = 0
+        self.meep_y = -SCREEN_HEIGHT/2 + 80
+        self.meep_swear_show = False
+
+        self.t_pop = 0
+        self.t_sprite_change = 0
+        self.t_freeze = False
+        
+        self.intro_show = True
 
     def setup(self):
         """ Set up the game and initialize the variables. """
@@ -125,31 +142,20 @@ class MyGame(arcade.Window):
         self.player_sprite.center_y = 0
         self.player_list.append(self.player_sprite)
 
-        # Bottom wall
-        for left in range(-2400, 2400, 1200//3 - 6):
-            wall = arcade.Sprite("images/floor.png", 0.333)
-            wall.left = left
-            wall.bottom = -SCREEN_HEIGHT + 64
-            self.wall_list.append(wall)
-
-        # MEEP
-        self.meep_sprite = arcade.Sprite("images/jiacheng.png", 0.333)
-        self.meep_sprite.center_x = -10000
-        self.meep_sprite.center_y = -SCREEN_HEIGHT/2 + 90
-        self.wall_list.append(self.meep_sprite)
-        self.meep_texture = arcade.load_texture("images/jiacheng.png")
-        self.meep_swear_texture = arcade.load_texture("images/swear.png")
-        self.meep_swear_sprite = arcade.Sprite("images/swear.png", 0.333)
-        self.meep_swear_sprite.center_x = -10000
-        self.meep_swear_sprite.center_y = -SCREEN_HEIGHT/2 + 200
-        self.meep_swear_sprite.transparent = True
-        self.wall_list.append(self.meep_swear_sprite)
-
         # TEACHER
         self.t_sprite = arcade.Sprite("images/trf.png", 0.333)
         self.t_sprite.center_x = -10000
         self.t_sprite.center_y = -SCREEN_HEIGHT/2 + 90
         self.wall_list.append(self.t_sprite)
+
+        # Bottom wall
+        for left in range(-24000, 24000, 1200//3 - 6):
+            wall = arcade.Sprite("images/floor.png", 0.333)
+            wall.left = left
+            wall.bottom = -SCREEN_HEIGHT + 64
+            wall.transparent = True
+            wall.alpha = 0.01
+            self.wall_list.append(wall)
 
         self.physics_engine = \
             arcade.PhysicsEnginePlatformer(self.player_sprite,
@@ -161,7 +167,14 @@ class MyGame(arcade.Window):
         # Load the background image. Do this in the setup so we don't keep reloading it all the time.
         # Image from:
         # http://wallpaper-gallery.net/single/free-background-images/free-background-images-22.html
-        self.background = arcade.load_texture("images/background.png")
+        self.background = arcade.load_texture("images/floor.png")
+
+        # MEEP
+        self.meep_texture = arcade.load_texture("images/jiacheng.png")
+        self.meep_swear_texture = arcade.load_texture("images/swear.png")
+        self.talk_texture = arcade.load_texture("images/talk.png")
+
+        self.intro_texture = arcade.load_texture("images/intro.png")
 
         # Set the view port boundaries
         # These numbers set where we have 'scrolled' to.
@@ -177,38 +190,73 @@ class MyGame(arcade.Window):
         arcade.start_render()
 
         # Draw the background texture
-        #arcade.draw_texture_rectangle(0, 0, 2400, 600, self.background)
+        for left in range(-24000, 24000, 1200//3 - 6):
+            arcade.draw_texture_rectangle(left + 200, -SCREEN_HEIGHT + 250, 1200//3, 834//3, self.background)
 
         if self.meep_pop == 0:
             if random.randint(0, p_to_max(player["a"])) == 0:
                 self.meep_pop = random.randint(1, 2)
         elif self.meep_pop == 1: # from left
-            self.meep_sprite.center_x = self.view_left - 64
+            self.meep_x = self.view_left - 64
             self.meep_pop = 3
         elif self.meep_pop == 2: # from left
-            self.meep_sprite.center_x = self.view_left + SCREEN_WIDTH + 64
+            self.meep_x = self.view_left + SCREEN_WIDTH + 64
             self.meep_pop = 3
         elif self.meep_pop == 3:
-            if self.meep_sprite.center_x < self.player_sprite.center_x:
-                self.meep_sprite.change_x = random.uniform(2, 6)
+            if self.meep_x < self.player_sprite.center_x:
+                self.meep_speed = random.uniform(2, 6)
             else:
-                self.meep_sprite.change_x = -random.uniform(2, 6)
-            if abs(self.meep_sprite.center_x - self.player_sprite.center_x) < 128:
-                self.meep_pop = 4
+                self.meep_speed = -random.uniform(2, 6)
+            if abs(self.meep_x - self.player_sprite.center_x) < 128:
+                self.meep_pop = 5
         elif self.meep_pop == 4:
-            self.meep_sprite.change_x = -self.meep_sprite.change_x
+            self.meep_speed = -self.meep_speed
             self.meep_pop = 5
         elif self.meep_pop == 5:
-            if abs(self.meep_sprite.center_x - (self.view_left + SCREEN_WIDTH / 2)) > SCREEN_WIDTH / 2:
+            if abs(self.meep_x - (self.view_left + SCREEN_WIDTH / 2)) > SCREEN_WIDTH / 2 + 128:
                 self.meep_pop = 0
             if random.randint(0, p_to_max(player["c"])) == 0:
                 self.score += 1
-                self.meep_swear_sprite.transparent = True
-                self.meep_swear_sprite.alpha = 1
-                self.meep_swear_sprite.center_x = self.meep_sprite.center_x + 24
-                self.meep_swear_sprite.change_x = self.meep_sprite.change_x
-            if random.randint(0, p_to_max(player["c"]) // 1000) == 0:
-                self.meep_swear_sprite.alpha = 0
+                self.meep_swear_show = True
+            if random.randint(0, p_to_max(player["c"]) // 2) == 0:
+                self.meep_swear_show = False
+
+        if self.t_pop == 0:
+            if random.randint(0, p_to_max(player["t"])) == 0:
+                self.t_pop = random.randint(1, 2)
+        elif self.t_pop == 1: # from left
+            self.t_sprite.center_x = self.view_left - 64
+            self.t_pop = 3
+        elif self.t_pop == 2: # from left
+            self.t_sprite.center_x = self.view_left + SCREEN_WIDTH + 64
+            self.t_pop = 3
+        elif self.t_pop == 3:
+            if self.t_sprite.center_x < self.player_sprite.center_x:
+                self.t_sprite.change_x = random.uniform(3, 8)
+            else:
+                self.t_sprite.change_x = -random.uniform(3, 8)
+            self.t_pop = 4
+        elif self.t_pop == 4:
+            if arcade.sprite.get_distance_between_sprites(self.t_sprite, self.player_sprite) < 90:
+                self.t_sprite.change_x = 0
+                self.t_freeze = True
+                self.player_sprite.change_x = 0
+                self.t_pop = 5
+            if arcade.sprite.get_distance_between_sprites(self.t_sprite, self.player_sprite) > SCREEN_WIDTH / 2:
+                self.t_pop = 0
+        elif self.t_pop == 5:
+            if random.randint(0, p_to_max(0.8)) == 0:
+                self.t_freeze = False
+                self.t_pop = 6
+        elif self.t_pop == 6:
+            if self.t_sprite.center_x < self.player_sprite.center_x:
+                self.t_sprite.change_x = -random.uniform(6, 8)
+            else:
+                self.t_sprite.change_x = random.uniform(6, 8)
+            self.t_pop = 7
+        elif self.t_pop == 7:
+            if abs(self.t_sprite.center_x - (self.view_left + SCREEN_WIDTH / 2)) > SCREEN_WIDTH / 2:
+                self.t_pop = 0
 
         if self.player_sprite.center_y < -600:
             arcade.draw_text("GAME OVER", self.view_left + SCREEN_WIDTH / 2, self.view_bottom + SCREEN_HEIGHT / 2, arcade.color.BLACK, 24)
@@ -216,6 +264,18 @@ class MyGame(arcade.Window):
         # Draw all the sprites.
         self.player_list.draw()
         self.wall_list.draw()
+
+        self.meep_x = self.meep_x + self.meep_speed
+        arcade.draw_texture_rectangle(self.meep_x, self.meep_y, 71, 159, self.meep_texture)
+        if self.meep_swear_show:
+            arcade.draw_texture_rectangle(self.meep_x + 10, self.meep_y + 120, 82, 55, self.meep_swear_texture)
+            
+        if self.t_freeze:
+            arcade.draw_texture_rectangle(self.player_sprite.center_x + 10, self.player_sprite.center_y + 100, 45, 36, self.talk_texture)
+            arcade.draw_texture_rectangle(self.t_sprite.center_x + 10, self.t_sprite.center_y + 100, 45, 36, self.talk_texture)
+        
+        if self.intro_show:
+            arcade.draw_texture_rectangle(SCREEN_WIDTH/2 - 180, SCREEN_HEIGHT/2 - 300, 489//3, 882//3, self.intro_texture)
 
         # Put the text on the screen.
         # Adjust the text position based on the view port so that we don't
@@ -230,6 +290,9 @@ class MyGame(arcade.Window):
         """
         Called whenever the mouse moves.
         """
+        #self.intro_show = False
+        if self.t_freeze:
+            return
         if key == arcade.key.UP:
             if self.physics_engine.can_jump():
                 self.player_sprite.change_y = JUMP_SPEED
