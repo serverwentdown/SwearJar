@@ -255,7 +255,7 @@ class MyGame(arcade.Window):
                 self.t_sprite.change_x = random.uniform(6, 8)
             self.t_pop = 7
         elif self.t_pop == 7:
-            if abs(self.t_sprite.center_x - (self.view_left + SCREEN_WIDTH / 2)) > SCREEN_WIDTH / 2:
+            if abs(self.t_sprite.center_x - (self.view_left + SCREEN_WIDTH / 2)) > SCREEN_WIDTH / 2 + 24:
                 self.t_pop = 0
 
         if self.player_sprite.center_y < -600:
@@ -283,8 +283,8 @@ class MyGame(arcade.Window):
         #output = f"X: {self.player_sprite.right}\nY: {self.player_sprite.bottom}"
         #arcade.draw_text(output, self.view_left + 10, self.view_bottom + SCREEN_HEIGHT - 50, arcade.color.BLACK, 14)
         
-        output = f"SwearJar: ${self.score*50/100}0"
-        arcade.draw_text(output, self.view_left + 10, self.view_bottom + SCREEN_HEIGHT - 20, arcade.color.BLACK, 14)
+        output = f"Swear Jar: ${self.score*50/100}0"
+        arcade.draw_text(output, self.view_left + 12, self.view_bottom + SCREEN_HEIGHT - 32, arcade.color.BLACK, 20)
 
     def on_key_press(self, key, modifiers):
         """
