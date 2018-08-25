@@ -150,7 +150,7 @@ class MyGame(arcade.Window):
 
         # Bottom wall
         for left in range(-24000, 24000, 1200//3 - 6):
-            wall = arcade.Sprite("images/floor.png", 0.333)
+            wall = arcade.Sprite("images/floor-gone.png", 0.333)
             wall.left = left
             wall.bottom = -SCREEN_HEIGHT + 64
             wall.transparent = True
